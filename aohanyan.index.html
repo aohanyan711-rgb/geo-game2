@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Տեսակավորման Խաղ</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; background-color: #f0f4f8; display: flex; flex-direction: column; align-items: center; padding: 10px; margin: 0; min-height: 100vh; }
+        
+        #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #f0f4f8; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
+        #start-btn { padding: 18px 45px; font-size: 22px; background: #3498db; color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; box-shadow: 0 8px 15px rgba(52, 152, 219, 0.3); transition: 0.3s; }
+
+        .stats-bar { display: flex; gap: 20px; background: white; padding: 10px 25px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); margin: 15px 0; font-weight: bold; color: #34495e; visibility: hidden; }
+        .score-correct { color: #2ecc71; }
+        .score-wrong { color: #e74c3c; }
+        
+        .countries-container { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%; max-width: 900px; margin-bottom: 20px; visibility: hidden; }
+        @media (min-width: 768px) { .countries-container { grid-template-columns: repeat(4, 1fr); } }
+
+        .country-card { background: white; border: 4px solid #d1d8e0; border-radius: 15px; padding: 10px; min-height: 200px; text-align: center; transition: 0.3s; cursor: pointer; }
+        .flag { font-size: 45px; display: block; }
+        
+        .country-card.correct { background-color: #2ecc71 !important; border-color: #27ae60 !important; color: white; }
+        .country-card.wrong { background-color: #e74c3c !important; border-color: #c0392b !important; animation: shake 0.4s; }
+
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-8px); } 75% { transform: translateX(8px); } }
+
+        .word-list { list-style: none; padding: 0; margin: 0; font-size: 13px; text-align: left; }
+        .word-list li { background: rgba(255, 255, 255, 0.3); margin: 4px 0; padding: 5px 10px; border-radius: 6px; border-left: 4px solid rgba(0,0,0,0.2); }
+
+        .words-pool { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; max-width: 900px; background: white; padding: 20px; border-radius: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); visibility: hidden; }
+        .word-item { background: #3498db; color: white; padding: 10px 18px; border-radius: 25px; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; font-size: 14px; }
+        .word-item.selected { background: #f1c40f; color: #2c3e50; }
+        .word-item.hidden { visibility: hidden; pointer-events: none; }
+        .word-item.marked-wrong { background: #95a5a6; }
+
+        /* Վերջնական հաղորդագրություն */
+        #final-message { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 30px; border-radius: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.2); text-align: center; display: none; z-index: 100; border: 6px solid #2ecc71; width: 80%; max-width: 400px; max-height: 80vh; overflow-y: auto; }
+        .overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display:none; z-index:99; }
+        
+        .error-item { text-align: left; background: #fdf2f2; border: 1px solid #f8d7da; padding: 8px; margin: 5px 0; border-radius: 8px; font-size: 14px; }
+        .error-word { font-weight: bold; color: #e74c3c; }
+        .error-correct-country { font-weight: bold; color: #27ae60; }
+    </style>
+</head>
+<body>
+
+    <div id="start-screen">
+        <h1 style="color: #2c3e50; margin-bottom: 30px;">Բարի գալուստ</h1>
+        <button id="start-btn" onclick="startGame()">ՍԿՍԵԼ</button>
+    </div>
+
+    <div class="stats-bar" id="stats-bar">
+        <div class="score-correct">Ճիշտ: <span id="correct-score">0</span></div>
+        <div class="score-wrong">Սխալ: <span id="wrong-score">0</span></div>
+        <div>Ժամանակ: <span id="timer">00:00</span></div>
+    </div>
+    
+    <div class="countries-container" id="countries-container">
+        <div class="country-card" onclick="selectCountry('Իտալիա', this)"><span class="flag">1</span><h2>Իտալիա</h2><ul class="word-list" id="list-Իտալիա"></ul></div>
+        <div class="country-card" onclick="selectCountry('Գերմանիա', this)"><span class="flag">2</span><h2>Գերմանիա</h2><ul class="word-list" id="list-Գերմանիա"></ul></div>
+        <div class="country-card" onclick="selectCountry('Ֆրանսիա', this)"><span class="flag">3</span><h2>Ֆրանսիա</h2><ul class="word-list" id="list-Ֆրանսիա"></ul></div>
+        <div class="country-card" onclick="selectCountry('Մեծ Բրիտանիա', this)"><span class="flag">4</span><h2>Մեծ Բրիտանիա</h2><ul class="word-list" id="list-Մեծ Բրիտանիա"></ul></div>
+    </div>
+
+    <div class="words-pool" id="words-pool"></div>
+
+    <div class="overlay" id="overlay"></div>
+    <div id="final-message">
+        <h2 style="color: #2c3e50;">Խաղն ավարտվեց</h2>
+        <p id="final-stats"></p>
+        <div id="errors-list" style="display: none; margin-bottom: 20px;">
+            <h3 style="font-size: 16px; color: #e74c3c;">Քո սխալները.</h3>
+            <div id="errors-container"></div>
+        </div>
+        <button id="show-errors-btn" onclick="showErrors()" style="padding: 12px 20px; background: #e67e22; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold; margin-bottom: 10px;">Սեղմիր սխալները տեսնելու համար</button>
+        <br>
+        <button onclick="location.reload()" style="padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 10px; cursor: pointer; font-weight: bold;">Խաղալ նորից</button>
+    </div>
+
+    <script>
+        const gameData = [
+            { word: "Հռոմ", country: "Իտալիա" }, { word: "Հավերժական քաղաք", country: "Իտալիա" }, { word: "Կոլիզեյ", country: "Իտալիա" }, { word: "Վենետիկ", country: "Իտալիա" }, { word: "Կառնավալ", country: "Իտալիա" }, { word: "Միջերկրական ծով", country: "Իտալիա" }, { word: "Միքելանջելո", country: "Իտալիա" },
+            { word: "Հռենոս", country: "Գերմանիա" }, { word: "Մարշեր", country: "Գերմանիա" }, { word: "Կարգապահություն", country: "Գերմանիա" }, { word: "Աշխատասիրություն", country: "Գերմանիա" }, { word: "Հյուր աշխատողներ", country: "Գերմանիա" }, { word: "Մյունխեն", country: "Գերմանիա" }, { word: "Քյոլն", country: "Գերմանիա" },
+            { word: "Կորսիկա", country: "Ֆրանսիա" }, { word: "Սենը", country: "Ֆրանսիա" }, { word: "Կանն", country: "Ֆրանսիա" }, { word: "Նիցցա", country: "Ֆրանսիա" }, { word: "Լա Մանշ", country: "Ֆրանսիա" }, { word: "Ազնավուր", country: "Ֆրանսիա" }, { word: "Լուվր", country: "Ֆրանսիա" },
+            { word: "Չերչիլ", country: "Մեծ Բրիտանիա" }, { word: "Ծովերի թագուհի", country: "Մեծ Բրիտանիա" }, { word: "Վեստմիսթերյան պալատ", country: "Մեծ Բրիտանիա" }, { word: "Օքսֆորդ", country: "Մեծ Բրիտանիա" }, { word: "Ստորջրյա հեռախոսագիծ", country: "Մեծ Բրիտանիա" }, { word: "Մետրոպոլիտեն", country: "Մեծ Բրիտանիա" }, { word: "Շոտլանդիա", country: "Մեծ Բրիտանիա" }
+        ];
+
+        let selectedWordData = null;
+        let selectedElement = null;
+        let correctScore = 0;
+        let wrongScore = 0;
+        let seconds = 0;
+        let timerInterval;
+        let foundWords = 0;
+        let mistakes = []; // Պահում է սխալված բառերը
+
+        function startGame() {
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('stats-bar').style.visibility = 'visible';
+            document.getElementById('countries-container').style.visibility = 'visible';
+            document.getElementById('words-pool').style.visibility = 'visible';
+            initGame();
+        }
+
+        function initGame() {
+            const pool = document.getElementById('words-pool');
+            const shuffled = [...gameData].sort(() => Math.random() - 0.5);
+            shuffled.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = 'word-item';
+                btn.innerText = item.word;
+                item.hasFailed = false;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.word-item').forEach(el => el.classList.remove('selected'));
+                    selectedWordData = item;
+                    selectedElement = btn;
+                    btn.classList.add('selected');
+                };
+                pool.appendChild(btn);
+            });
+            startTimer();
+        }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                seconds++;
+                let min = Math.floor(seconds / 60);
+                let sec = seconds % 60;
+                document.getElementById('timer').innerText = (min < 10 ? '0' + min : min) + ":" + (sec < 10 ? '0' + sec : sec);
+            }, 1000);
+        }
+
+        function selectCountry(countryName, cardElement) {
+            if (!selectedWordData) return;
+
+            if (selectedWordData.country === countryName) {
+                if (!selectedWordData.hasFailed) {
+                    correctScore++;
+                    document.getElementById('correct-score').innerText = correctScore;
+                }
+                foundWords++;
+                const list = document.getElementById(`list-${countryName}`);
+                const li = document.createElement('li');
+                li.innerText = selectedWordData.word;
+                list.appendChild(li);
+                cardElement.classList.add('correct');
+                setTimeout(() => cardElement.classList.remove('correct'), 600);
+                selectedElement.classList.add('hidden');
+                selectedWordData = null;
+                if (foundWords === gameData.length) endGame();
+            } else {
+                if (!selectedWordData.hasFailed) {
+                    wrongScore++;
+                    document.getElementById('wrong-score').innerText = wrongScore;
+                    selectedWordData.hasFailed = true;
+                    selectedElement.classList.add('marked-wrong');
+                    mistakes.push(selectedWordData); // Ավելացնում ենք սխալների ցուցակում
+                }
+                cardElement.classList.add('wrong');
+                setTimeout(() => cardElement.classList.remove('wrong'), 600);
+                document.querySelectorAll('.word-item').forEach(el => el.classList.remove('selected'));
+                selectedWordData = null;
+            }
+        }
+
+        function endGame() {
+            clearInterval(timerInterval);
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('final-message').style.display = 'block';
+            document.getElementById('final-stats').innerText = 
+                `Ճիշտ՝ ${correctScore}, Սխալ՝ ${wrongScore}, Ժամանակ՝ ${document.getElementById('timer').innerText}`;
+            
+            if (mistakes.length === 0) {
+                document.getElementById('show-errors-btn').style.display = 'none';
+            }
+        }
+
+        function showErrors() {
+            const container = document.getElementById('errors-container');
+            container.innerHTML = "";
+            mistakes.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'error-item';
+                div.innerHTML = `<span class="error-word">${item.word}</span> -> Ճիշտը՝ <span class="error-correct-country">${item.country}</span>`;
+                container.appendChild(div);
+            });
+            document.getElementById('errors-list').style.display = 'block';
+            document.getElementById('show-errors-btn').style.display = 'none';
+        }
+    </script>
+</body>
+</html>
